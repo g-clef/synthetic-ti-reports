@@ -50,6 +50,8 @@ def extract_text_from_PDF(path_to_pdf) -> str:
                 full_text += text
     except pdfminer.pdfparser.PDFSyntaxError:
         print(f"bad pdf syntax in {path_to_pdf}. skipping entire file.")
+    except Exception as e:
+        print(f"other exception occurred during processing. skipping {path_to_pdf}. Exception: {e}")
     # TODO here: path/mutex/url/ip/domain name munging on extracted text
     return full_text
 
