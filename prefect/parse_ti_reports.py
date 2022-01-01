@@ -3,7 +3,7 @@ import uuid
 
 import pdfminer.pdfparser
 import pdfplumber
-from prefect import task, Flow, Client
+from prefect import task, Flow, Client, context
 from prefect.storage import Docker
 from prefect.run_configs import KubernetesRun
 
@@ -13,10 +13,13 @@ OUTPUT_PATH = os.environ.get("OUTPUT_PATH", "/results")
 
 @task
 def parse_task(job_id, input_path, output_path):
+    logger = context.get("logger")
+    logger.info(f"beginning task with job id {job_id}")
     parse_all(job_id, input_path, output_path)
+    logger.info(f"finished task with job id {job_id}")
 
 
-def parse_all(job_id, input_path, output_path, skip_overwrites=True):
+def parse_all(job_id, input_path, output_path, skip_overwrites=True, logger=None):
     base_dir = os.path.join(output_path, job_id)
     if os.path.exists(base_dir):
         raise Exception(f"output job directory {base_dir} already exists.")
@@ -25,7 +28,7 @@ def parse_all(job_id, input_path, output_path, skip_overwrites=True):
         for filename in files:
             if filename.endswith(".pdf"):
                 path = os.path.join(root, filename)
-                text = extract_text_from_PDF(path)
+                text = extract_text_from_PDF(path, logger)
                 new_path = os.path.join(base_dir, filename.replace(".pdf", ".txt"))
                 if os.path.exists(new_path) and not skip_overwrites:
                     raise Exception(f"overwriting existing data at {new_path}")
@@ -33,7 +36,14 @@ def parse_all(job_id, input_path, output_path, skip_overwrites=True):
                     outfile.write(text)
 
 
-def extract_text_from_PDF(path_to_pdf) -> str:
+def print_or_log(error_string, logger):
+    if logger is not None:
+        logger.error(error_string)
+    else:
+        print(error_string)
+
+
+def extract_text_from_PDF(path_to_pdf, logger) -> str:
     full_text = ""
     try:
         with pdfplumber.open(path_to_pdf) as pdf:
@@ -46,12 +56,12 @@ def extract_text_from_PDF(path_to_pdf) -> str:
                     try:
                         text = page.extract_text()
                     except Exception:
-                        print(f"bad page {page.page_number} in {path_to_pdf} skipping")
+                        print_or_log(f"bad page {page.page_number} in {path_to_pdf} skipping", logger)
                 full_text += text
     except pdfminer.pdfparser.PDFSyntaxError:
-        print(f"bad pdf syntax in {path_to_pdf}. skipping entire file.")
+        print_or_log(f"bad pdf syntax in {path_to_pdf}. skipping entire file.", logger)
     except Exception as e:
-        print(f"other exception occurred during processing. skipping {path_to_pdf}. Exception: {e}")
+        print_or_log(f"other exception occurred during processing. skipping {path_to_pdf}. Exception: {e}", logger)
     # TODO here: path/mutex/url/ip/domain name munging on extracted text
     return full_text
 
