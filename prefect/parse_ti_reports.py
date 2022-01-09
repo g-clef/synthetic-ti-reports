@@ -15,35 +15,35 @@ OUTPUT_PATH = os.environ.get("OUTPUT_PATH", "/results")
 code_like_regexes = [
     # python
     # some reports put line numbers with their Python. I have no idea why.
-    re.compile(r'[\d ]* def .+\('),
-    re.compile(r'[\d ]* import .+'),
-    re.compile(r'[\d ]* from .+ import'),
+    re.compile(r'[\d\s]*def .+\('),
+    re.compile(r'[\d\s]*import .+'),
+    re.compile(r'[\d\s]*from .+ import'),
     # C
-    re.compile(r'void .*?\('),
-    re.compile(r'char\* .*\('),
-    re.compile(r'require \'.*\' '),
-    re.compile(r'#include'),
-    re.compile(r'#define'),
-    re.compile(r'#infdef'),
+    re.compile(r'\s*void .+\('),
+    re.compile(r'\s*char .+\('),
+    re.compile(r'\s*require \'.+\' '),
+    re.compile(r'\s*#include'),
+    re.compile(r'\s*#define'),
+    re.compile(r'\s*#infdef'),
     # java
-    re.compile(r'public static '),
-    re.compile(r'private static '),
-    re.compile(r'public void '),
-    re.compile(r'private void '),
+    re.compile(r'\s*public static '),
+    re.compile(r'\s*private static '),
+    re.compile(r'\s*public void '),
+    re.compile(r'\s*private void '),
     # C#
-    re.compile(r'namespace '),
+    re.compile(r'\s*namespace '),
     # assembly
-    re.compile(r'push '),
-    re.compile(r'mov '),
-    re.compile(r'xor '),
-    re.compile(r'mul '),
-    re.compile(r'inc '),
-    re.compile(r'cmp '),
-    re.compile(r'jnz '),
-    re.compile(r'pop '),
-    re.compile(r'ret '),
+    re.compile(r'\s*push '),
+    re.compile(r'\s*mov '),
+    re.compile(r'\s*xor '),
+    re.compile(r'\s*mul '),
+    re.compile(r'\s*inc '),
+    re.compile(r'\s*cmp '),
+    re.compile(r'\s*jnz '),
+    re.compile(r'\s*pop '),
+    re.compile(r'\s*ret '),
     # hex dump
-    re.compile(r'\d{8} \d{2} \d{2} \d{2}')
+    re.compile(r'\s*\d{8} \d{2} \d{2} \d{2}')
 ]
 
 @task
