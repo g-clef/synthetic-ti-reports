@@ -15,7 +15,7 @@ OUTPUT_PATH = os.environ.get("OUTPUT_PATH", "/results")
 code_like_regexes = [
     # python
     # some reports put line numbers with their Python. I have no idea why.
-    re.compile(r'[\d\s]*def .+\('),
+    re.compile(r'[\d\s.]*def .+\('),
     re.compile(r'[\d\s]*import .+'),
     re.compile(r'[\d\s]*from .+ import'),
     # C
@@ -24,7 +24,8 @@ code_like_regexes = [
     re.compile(r'\s*require \'.+\' '),
     re.compile(r'\s*#include'),
     re.compile(r'\s*#define'),
-    re.compile(r'\s*#infdef'),
+    re.compile(r'\s*#ifndef'),
+    re.compile(r'\s*typedef'),
     # java
     re.compile(r'\s*public static '),
     re.compile(r'\s*private static '),
