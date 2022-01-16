@@ -1,19 +1,55 @@
 import os
+import re
 import uuid
 
 import pdfminer.pdfparser
 import pdfplumber
-from prefect import task, Flow, Client, context
+import prefect
+from prefect import task, Flow, Client
 from prefect.storage import Docker
 from prefect.run_configs import KubernetesRun
 
 INPUT_PATH = os.environ.get("INPUT_PATH", "/tireports")
 OUTPUT_PATH = os.environ.get("OUTPUT_PATH", "/results")
 
+code_like_regexes = [
+    # python
+    # some reports put line numbers with their Python. I have no idea why.
+    re.compile(r'[\d\s.]*def .+\('),
+    re.compile(r'[\d\s]*import .+'),
+    re.compile(r'[\d\s]*from .+ import'),
+    # C
+    re.compile(r'\s*void .+\('),
+    re.compile(r'\s*char .+\('),
+    re.compile(r'\s*require \'.+\' '),
+    re.compile(r'\s*#include'),
+    re.compile(r'\s*#define'),
+    re.compile(r'\s*#ifndef'),
+    re.compile(r'\s*typedef'),
+    # java
+    re.compile(r'\s*public static '),
+    re.compile(r'\s*private static '),
+    re.compile(r'\s*public void '),
+    re.compile(r'\s*private void '),
+    # C#
+    re.compile(r'\s*namespace '),
+    # assembly
+    re.compile(r'\s*push '),
+    re.compile(r'\s*mov '),
+    re.compile(r'\s*xor '),
+    re.compile(r'\s*mul '),
+    re.compile(r'\s*inc '),
+    re.compile(r'\s*cmp '),
+    re.compile(r'\s*jnz '),
+    re.compile(r'\s*pop '),
+    re.compile(r'\s*ret '),
+    # hex dump
+    re.compile(r'\s*\d{8} \d{2} \d{2} \d{2}')
+]
 
 @task
 def parse_task(job_id, input_path, output_path):
-    logger = context.get("logger")
+    logger = prefect.context.get("logger")
     logger.info(f"beginning task with job id {job_id}")
     parse_all(job_id, input_path, output_path)
     logger.info(f"finished task with job id {job_id}")
@@ -43,6 +79,30 @@ def print_or_log(error_string, logger):
         print(error_string)
 
 
+def line_looks_like_code(line: str) -> bool:
+    text = line.strip()
+    return any (reg.match(text) for reg in code_like_regexes)
+
+
+def remove_code_snippets(text: str) -> str:
+    # assume that a line that starts with a code-like string is the beginning of a code snippet,
+    # also assume that there are *two* newlines after a code snippet before returning to regular text.
+    in_code: bool = False
+    last_line_was_blank = False
+    response = ""
+    for line in text.split("\n"):
+        contents = line.strip()
+        if not contents and last_line_was_blank:
+            in_code = False
+        if line_looks_like_code(line):
+            in_code = True
+        if not in_code:
+            # split removes "\n"'s, so put them back.
+            response += line + "\n"
+        last_line_was_blank = not bool(contents)
+    return response
+
+
 def extract_text_from_PDF(path_to_pdf, logger) -> str:
     full_text = ""
     try:
@@ -63,6 +123,7 @@ def extract_text_from_PDF(path_to_pdf, logger) -> str:
     except Exception as e:
         print_or_log(f"other exception occurred during processing. skipping {path_to_pdf}. Exception: {e}", logger)
     # TODO here: path/mutex/url/ip/domain name munging on extracted text
+    full_text = remove_code_snippets(full_text)
     return full_text
 
 
@@ -80,7 +141,7 @@ def main():
 
 
 def test():
-    parse_all("testing", "/Volumes/ti_reports", "/tmp/parsed_results")
+    parse_all("testing", "/Users/g-clef/IdeaProjects/synthetic-ti-reports/prefect/", "/tmp/parsed_results")
 
 
 if __name__ == "__main__":
