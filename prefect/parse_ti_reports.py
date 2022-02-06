@@ -47,6 +47,19 @@ code_like_regexes = [
     re.compile(r'\s*\d{8} \d{2} \d{2} \d{2}')
 ]
 
+
+URL_REGs = [
+    # https is optional, handle de-fanging of the colon (for some reason it's popular to put
+    # brackets around the colon in the http://, but it's not universal, so make those optional.)
+    #
+    re.compile(r'http(s?)(\[?):(]?)//.*\s'),
+    re.compile(r'hxxp(s?)(\[?):(]?)//.*\s'),
+    re.compile(r'/wp-content/.*\s'),
+    re.compile(r'\s.*?\.com/.*\s')
+    ]
+
+
+
 @task
 def parse_task(job_id, input_path, output_path):
     logger = prefect.context.get("logger")
@@ -72,6 +85,14 @@ def parse_all(job_id, input_path, output_path, skip_overwrites=True, logger=None
                     outfile.write(text)
 
 
+def replace_urls(report_string):
+    for reg in URL_REGs:
+        if reg.search(report_string):
+            report_string = re.sub(reg, " ", report_string)
+    return report_string
+
+
+
 def print_or_log(error_string, logger):
     if logger is not None:
         logger.error(error_string)
@@ -81,7 +102,7 @@ def print_or_log(error_string, logger):
 
 def line_looks_like_code(line: str) -> bool:
     text = line.strip()
-    return any (reg.match(text) for reg in code_like_regexes)
+    return any(reg.match(text) for reg in code_like_regexes)
 
 
 def remove_code_snippets(text: str) -> str:
@@ -124,6 +145,10 @@ def extract_text_from_PDF(path_to_pdf, logger) -> str:
         print_or_log(f"other exception occurred during processing. skipping {path_to_pdf}. Exception: {e}", logger)
     # TODO here: path/mutex/url/ip/domain name munging on extracted text
     full_text = remove_code_snippets(full_text)
+    # remove multi-line whitespaces, since they seem to confuse GPT2
+    full_text = re.sub(r'\s{2,}', " ", full_text)
+    # remove urls, since that seems to also be confusing GPT2
+    full_text = replace_urls(full_text)
     return full_text
 
 
